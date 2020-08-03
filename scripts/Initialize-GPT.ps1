@@ -1,5 +1,10 @@
 [CmdletBinding()]
-param()
+param(
+
+  [Parameter(Mandatory=$true)]
+  [string]$SeparateDataLogsVolume
+
+)
 
 # Getting the DSC Cert Encryption Thumbprint to Secure the MOF File
 $DscCertThumbprint = (get-childitem -path cert:\LocalMachine\My | where { $_.subject -eq "CN=AWSQSDscEncryptCert" }).Thumbprint
@@ -37,33 +42,50 @@ Configuration Disk_InitializeDataDisk
              DependsOn = '[WaitForDisk]Disk2'
         }
 
-        WaitForDisk Disk2 {
-             DiskId = 2
-             RetryIntervalSec = 60
-             RetryCount = 60
+        if ( $SeparateDataLogsVolume -eq "true" ) {
+          WaitForDisk Disk2 {
+               DiskId = 2
+               RetryIntervalSec = 60
+               RetryCount = 60
+          }
+
+          Disk EVolume {
+               DiskId = 2
+               DriveLetter = 'E'
+               PartitionStyle = 'GPT'
+               FSFormat = 'NTFS'
+               DependsOn = '[WaitForDisk]Disk2'
+          }
+
+          WaitForDisk Disk3 {
+              DiskId = 3
+              RetryIntervalSec = 60
+              RetryCount = 60
+          }
+
+          Disk FVolume {
+              DiskId = 3
+              DriveLetter = 'F'
+              PartitionStyle = 'GPT'
+              FSFormat = 'NTFS'
+              DependsOn = '[WaitForDisk]Disk3'
+          }
         }
+        else {
+          WaitForDisk Disk2 {
+               DiskId = 2
+               RetryIntervalSec = 60
+               RetryCount = 60
+          }
 
-        Disk EVolume {
-             DiskId = 2
-             DriveLetter = 'E'
-             PartitionStyle = 'GPT'
-             FSFormat = 'NTFS'
-             DependsOn = '[WaitForDisk]Disk2'
+          Disk EVolume {
+               DiskId = 2
+               DriveLetter = 'F'
+               PartitionStyle = 'GPT'
+               FSFormat = 'NTFS'
+               DependsOn = '[WaitForDisk]Disk2'
+          }
         }
-
-        WaitForDisk Disk3 {
-            DiskId = 3
-            RetryIntervalSec = 60
-            RetryCount = 60
-       }
-
-       Disk FVolume {
-            DiskId = 3
-            DriveLetter = 'F'
-            PartitionStyle = 'GPT'
-            FSFormat = 'NTFS'
-            DependsOn = '[WaitForDisk]Disk3'
-       }
     }
 }
 
