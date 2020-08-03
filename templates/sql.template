@@ -50,7 +50,6 @@ Metadata:
           - Volume3Size
           - Volume3Type
           - Volume3Iops
-          - SQL2016Media
           - SQL2017Media
           - SQL2019Media
       - Label:
@@ -84,7 +83,6 @@ Metadata:
           - WS2019FULLBASE
           - WS2019FULLSQL2019ENT
           - WS2019FULLSQL2017ENT
-          - WS2019FULLSQL2016ENT
       - Label:
           default: AWS Quick Start configuration
         Parameters:
@@ -132,8 +130,6 @@ Metadata:
         default: Quick Start S3 bucket region
       QSS3KeyPrefix:
         default: Quick Start S3 key prefix
-      SQL2016Media:
-        default: SQL Server 2016 installation media location
       SQL2017Media:
         default: SQL Server 2017 installation media location
       SQL2019Media:
@@ -212,8 +208,6 @@ Metadata:
         default: Windows Server 2019 full locale English with SQL Enterprise 2019 AMI
       WS2019FULLSQL2017ENT:
         default: Windows Server 2019 Locale English with SQL Enterprise 2017 AMI
-      WS2019FULLSQL2016ENT:
-        default: Windows Server 2019 Locale English with SQL Enterprise 2016 AMI
 Parameters:
   ADScenarioType:
     AllowedValues:
@@ -335,10 +329,6 @@ Parameters:
       can include numbers, lowercase letters, uppercase letters, hyphens (-), and
       forward slash (/).
     Type: String
-  SQL2016Media:
-    Default: https://download.microsoft.com/download/9/0/7/907AD35F-9F9C-43A5-9789-52470555DB90/ENU/SQLServer2016SP1-FullSlipstream-x64-ENU.iso
-    Description: SQL Server 2016 installation media location
-    Type: String
   SQL2017Media:
     Default: https://download.microsoft.com/download/E/F/2/EF23C21D-7860-4F05-88CE-39AA114B014B/SQLServer2017-x64-ENU.iso
     Description: SQL Server 2017 installation media location
@@ -356,7 +346,6 @@ Parameters:
     Type: String
   SQLServerVersion:
     AllowedValues:
-      - '2016'
       - '2017'
       - '2019'
     Default: '2019'
@@ -605,9 +594,6 @@ Parameters:
   WS2019FULLSQL2017ENT:
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-windows-latest/Windows_Server-2019-English-Full-SQL_2017_Enterprise'
-  WS2019FULLSQL2016ENT:
-    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
-    Default: '/aws/service/ami-windows-latest/Windows_Server-2019-English-Full-SQL_2016_SP2_Enterprise'
 Conditions:
   UsingDefaultBucket: !Equals [!Ref QSS3BucketName, 'aws-quickstart']
   UseAWSDirectoryServiceEE: !Equals
@@ -652,9 +638,6 @@ Conditions:
   SQLBakedInAMI: !Equals
     - !Ref 'SQLLicenseProvided'
     - 'yes'
-  SQLVersion2016: !Equals
-    - !Ref 'SQLServerVersion'
-    - '2016'
   SQLVersion2017: !Equals
     - !Ref 'SQLServerVersion'
     - '2017'
@@ -760,9 +743,6 @@ Resources:
           SQLLicenseProvided:
             default: "yes"
             description: "License SQL Server from AWS Marketplace"
-            type: "String"
-          SQL2016Media:
-            description: "SQL Server 2017 installation media location"
             type: "String"
           SQL2017Media:
             description: "SQL Server 2017 installation media location"
@@ -1509,7 +1489,7 @@ Resources:
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
-              commandLine: "./DownloadSQLEE.ps1 -SQLServerVersion {{SQLServerVersion}} -SQL2016Media {{SQL2016Media}} -SQL2017Media {{SQL2017Media}} -SQL2019Media {{SQL2019Media}}"
+              commandLine: "./DownloadSQLEE.ps1 -SQLServerVersion {{SQLServerVersion}} -SQL2016Media "none" -SQL2017Media {{SQL2017Media}} -SQL2019Media {{SQL2019Media}}"
         - name: "2NodeSQLInstallMOF"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
@@ -1603,7 +1583,7 @@ Resources:
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
-              commandLine: "./DownloadSQLEE.ps1 -SQLServerVersion {{SQLServerVersion}} -SQL2016Media {{SQL2016Media}} -SQL2017Media {{SQL2017Media}} -SQL2019Media {{SQL2019Media}}"
+              commandLine: "./DownloadSQLEE.ps1 -SQLServerVersion {{SQLServerVersion}} -SQL2016Media "none" -SQL2017Media {{SQL2017Media}} -SQL2019Media {{SQL2019Media}}"
         - name: "3NodeSQLInstallMOF"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
@@ -2269,12 +2249,9 @@ Resources:
         - !If
             - SQLBakedInAMI
             - !If
-                - 'SQLVersion2016'
-                - !Ref WS2019FULLSQL2016ENT
-                - !If
-                  - 'SQLVersion2017'
-                  - !Ref WS2019FULLSQL2017ENT
-                  - !Ref WS2019FULLSQL2019ENT
+                - 'SQLVersion2017'
+                - !Ref WS2019FULLSQL2017ENT
+                - !Ref WS2019FULLSQL2019ENT
             - !Ref WS2019FULLBASE
       IamInstanceProfile: !Ref 'WSFCProfile'
       InstanceType: !Ref 'WSFCNode1InstanceType'
@@ -2333,12 +2310,9 @@ Resources:
         - !If
             - SQLBakedInAMI
             - !If
-                - 'SQLVersion2016'
-                - !Ref WS2019FULLSQL2016ENT
-                - !If
-                  - 'SQLVersion2017'
-                  - !Ref WS2019FULLSQL2017ENT
-                  - !Ref WS2019FULLSQL2019ENT
+                - 'SQLVersion2017'
+                - !Ref WS2019FULLSQL2017ENT
+                - !Ref WS2019FULLSQL2019ENT
             - !Ref WS2019FULLBASE
       IamInstanceProfile: !Ref 'WSFCProfile'
       InstanceType: !Ref 'WSFCNode3InstanceType'
@@ -2396,12 +2370,9 @@ Resources:
         - !If
             - SQLBakedInAMI
             - !If
-                - 'SQLVersion2016'
-                - !Ref WS2019FULLSQL2016ENT
-                - !If
-                  - 'SQLVersion2017'
-                  - !Ref WS2019FULLSQL2017ENT
-                  - !Ref WS2019FULLSQL2019ENT
+                - 'SQLVersion2017'
+                - !Ref WS2019FULLSQL2017ENT
+                - !Ref WS2019FULLSQL2019ENT
             - !Ref WS2019FULLBASE
       IamInstanceProfile: !Ref 'WSFCProfile'
       InstanceType: !Ref 'WSFCNode2InstanceType'
@@ -2488,7 +2459,7 @@ Resources:
             - ';"QSS3KeyPrefix"='
             - !Sub '"${QSS3KeyPrefix}"'
             - ';"SQL2016Media"='
-            - !Sub '"${SQL2016Media}"'
+            - !Sub '"none"'
             - ';"SQL2017Media"='
             - !Sub '"${SQL2017Media}"'
             - ';"SQL2019Media"='
