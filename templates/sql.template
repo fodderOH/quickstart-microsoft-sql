@@ -971,7 +971,7 @@ Resources:
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
-              commandLine: "./Initialize-GPT.ps1"
+              commandLine: "./Initialize-GPT.ps1 -SeparateDataLogsVolume 'true'"
         - name: "wsfcnLCMConfig"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
