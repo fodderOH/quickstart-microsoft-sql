@@ -1489,7 +1489,7 @@ Resources:
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
-              commandLine: "./DownloadSQLEE.ps1 -SQLServerVersion {{SQLServerVersion}} -SQL2016Media "none" -SQL2017Media {{SQL2017Media}} -SQL2019Media {{SQL2019Media}}"
+              commandLine: "./DownloadSQLEE.ps1 -SQLServerVersion {{SQLServerVersion}} -SQL2016Media 'none' -SQL2017Media {{SQL2017Media}} -SQL2019Media {{SQL2019Media}}"
         - name: "2NodeSQLInstallMOF"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
@@ -1583,7 +1583,7 @@ Resources:
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
-              commandLine: "./DownloadSQLEE.ps1 -SQLServerVersion {{SQLServerVersion}} -SQL2016Media "none" -SQL2017Media {{SQL2017Media}} -SQL2019Media {{SQL2019Media}}"
+              commandLine: "./DownloadSQLEE.ps1 -SQLServerVersion {{SQLServerVersion}} -SQL2016Media 'none' -SQL2017Media {{SQL2017Media}} -SQL2019Media {{SQL2019Media}}"
         - name: "3NodeSQLInstallMOF"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
