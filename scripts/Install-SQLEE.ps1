@@ -16,6 +16,9 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$SQLSecret
 
+    [Parameter(Mandatory=$true)]
+    [string]$SeparateDataLogsVolume
+
 )
 
 # Getting the DSC Cert Encryption Thumbprint to Secure the MOF File
@@ -67,43 +70,70 @@ Configuration SQLInstall {
 
     Import-Module -Name PSDesiredStateConfiguration
     Import-Module -Name SqlServerDsc
-    
+
     Import-DscResource -Module PSDesiredStateConfiguration
     Import-DscResource -Module SqlServerDsc
-    
+
     Node 'localhost'{
         WindowsFeature 'NetFramework35'{
             Name   = 'NET-Framework-Core'
             Ensure = 'Present'
         }
-    
+
         WindowsFeature 'NetFramework45'{
             Name   = 'NET-Framework-45-Core'
             Ensure = 'Present'
         }
-    
-        SqlSetup 'InstallDefaultInstance'{
-            InstanceName           = 'MSSQLSERVER'
-            Features               = 'SQLENGINE,Replication,FullText,Conn'
-            SQLCollation           = 'SQL_Latin1_General_CP1_CI_AS'
-            SQLSvcAccount          = $SQLCredentials
-            AgtSvcAccount          = $SQLCredentials
-            SQLSysAdminAccounts    = $ClusterAdminUser, $SQLAdminUser
-            ASSysAdminAccounts     = $ClusterAdminUser, $SQLAdminUser
-            InstallSharedDir       = 'C:\Program Files\Microsoft SQL Server'
-            InstallSharedWOWDir    = 'C:\Program Files (x86)\Microsoft SQL Server'
-            InstanceDir            = 'C:\Program Files\Microsoft SQL Server'
-            InstallSQLDataDir      = 'D:\MSSQL\Data'
-            SQLUserDBDir           = 'D:\MSSQL\Data'
-            SQLUserDBLogDir        = 'E:\MSSQL\Log'
-            SQLTempDBDir           = 'F:\MSSQL\Temp'
-            SQLTempDBLogDir        = 'F:\MSSQL\Temp'
-            SQLBackupDir           = 'F:\MSSQL\Backup'
-            SourcePath             = 'C:\SQLInstall\'
-            UpdateEnabled          = 'False'
-            ForceReboot            = $false
-            PsDscRunAsCredential   = $Credentials
-            DependsOn              = '[WindowsFeature]NetFramework35', '[WindowsFeature]NetFramework45'
+
+        if ( $SeparateDataLogsVolume -eq "true" ) {
+          SqlSetup 'InstallDefaultInstance'{
+              InstanceName           = 'MSSQLSERVER'
+              Features               = 'SQLENGINE,Replication,FullText,Conn'
+              SQLCollation           = 'SQL_Latin1_General_CP1_CI_AS'
+              SQLSvcAccount          = $SQLCredentials
+              AgtSvcAccount          = $SQLCredentials
+              SQLSysAdminAccounts    = $ClusterAdminUser, $SQLAdminUser
+              ASSysAdminAccounts     = $ClusterAdminUser, $SQLAdminUser
+              InstallSharedDir       = 'C:\Program Files\Microsoft SQL Server'
+              InstallSharedWOWDir    = 'C:\Program Files (x86)\Microsoft SQL Server'
+              InstanceDir            = 'C:\Program Files\Microsoft SQL Server'
+              InstallSQLDataDir      = 'D:\MSSQL\Data'
+              SQLUserDBDir           = 'D:\MSSQL\Data'
+              SQLUserDBLogDir        = 'E:\MSSQL\Log'
+              SQLTempDBDir           = 'F:\MSSQL\Temp'
+              SQLTempDBLogDir        = 'F:\MSSQL\Temp'
+              SQLBackupDir           = 'F:\MSSQL\Backup'
+              SourcePath             = 'C:\SQLInstall\'
+              UpdateEnabled          = 'False'
+              ForceReboot            = $false
+              PsDscRunAsCredential   = $Credentials
+              DependsOn              = '[WindowsFeature]NetFramework35', '[WindowsFeature]NetFramework45'
+          }
+        }
+        else {
+          SqlSetup 'InstallDefaultInstance'{
+              InstanceName           = 'MSSQLSERVER'
+              Features               = 'SQLENGINE,Replication,FullText,Conn'
+              SQLCollation           = 'SQL_Latin1_General_CP1_CI_AS'
+              SQLSvcAccount          = $SQLCredentials
+              AgtSvcAccount          = $SQLCredentials
+              SQLSysAdminAccounts    = $ClusterAdminUser, $SQLAdminUser
+              ASSysAdminAccounts     = $ClusterAdminUser, $SQLAdminUser
+              InstallSharedDir       = 'C:\Program Files\Microsoft SQL Server'
+              InstallSharedWOWDir    = 'C:\Program Files (x86)\Microsoft SQL Server'
+              InstanceDir            = 'C:\Program Files\Microsoft SQL Server'
+              InstallSQLDataDir      = 'D:\MSSQL\Data'
+              SQLUserDBDir           = 'D:\MSSQL\Data'
+              SQLUserDBLogDir        = 'D:\MSSQL\Logs'
+              SQLTempDBDir           = 'F:\MSSQL\Temp'
+              SQLTempDBLogDir        = 'F:\MSSQL\Temp'
+              SQLBackupDir           = 'F:\MSSQL\Backup'
+              SourcePath             = 'C:\SQLInstall\'
+              UpdateEnabled          = 'False'
+              ForceReboot            = $false
+              PsDscRunAsCredential   = $Credentials
+              DependsOn              = '[WindowsFeature]NetFramework35', '[WindowsFeature]NetFramework45'
+          }
         }
     }
 }

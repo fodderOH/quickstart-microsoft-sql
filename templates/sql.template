@@ -43,6 +43,7 @@ Metadata:
           - Volume1Size
           - Volume1Type
           - Volume1Iops
+          - SeparateDataLogsVolume
           - Volume2Size
           - Volume2Type
           - Volume2Iops
@@ -153,6 +154,8 @@ Metadata:
         default: Data volume size
       Volume1Type:
         default: Data volume type
+      SeparateDataLogsVolume:
+        default: false
       Volume2Iops:
         default: Logs volume IOPS
       Volume2Size:
@@ -203,7 +206,7 @@ Metadata:
         default: Cluster node 3 private IP address 2
       WSFCNode3PrivateIP3:
         default: Cluster node 3 private IP address 3
-      WS2019FULLBASE: 
+      WS2019FULLBASE:
         default: Windows Server 2019 full base AMI
       WS2019FULLSQL2019ENT:
         default: Windows Server 2019 full locale English with SQL Enterprise 2019 AMI
@@ -405,10 +408,10 @@ Parameters:
     Type: String
   SeparateDataLogsVolume:
     AllowedValues:
-      - Yes
-      - No
-    Default: No
-    Description: Should data and logs be kept on separate volumes?
+      - true
+      - false
+    Default: false
+    Description: Should data and logs be kept on separate volumes? (If using gp or io1, separate volumes shouldn't be necessary.)
     Type: String
   Volume2Iops:
     Default: '1000'
@@ -635,7 +638,7 @@ Conditions:
     - io1
   IsVol2Needed: !Equals
       - !Ref 'SeparateDataLogsVolume'
-      - Yes
+      - 'true'
   HostTypeIsDefault: !Equals
     - !Ref 'HostType'
     - Shared
@@ -670,7 +673,7 @@ Rules:
 Resources:
   QuickStartLogs:
     Type: AWS::Logs::LogGroup
-    Properties: 
+    Properties:
       LogGroupName: !Sub '/aws/Quick_Start/${AWS::StackName}'
       RetentionInDays: 30
   ADAdminSecrets:
@@ -705,7 +708,7 @@ Resources:
             Statement:
               - Action:
                   - s3:GetObject
-                Resource: 
+                Resource:
                   - !Sub 'arn:aws:s3:::aws-ssm-${AWS::Region}/*'
                   - !Sub 'arn:aws:s3:::aws-windows-downloads-${AWS::Region}/*'
                   - !Sub 'arn:aws:s3:::amazon-ssm-${AWS::Region}/*'
@@ -818,15 +821,19 @@ Resources:
             default: "SQLAG1"
             description: "NetBIOS name of the Availablity Group (up to 15 characters)"
             type: "String"
-          ThirdAZ: 
+          SeparateDataLogsVolume:
+            default: "false"
+            description: "Should SQL data and logs be stored on separate volumes?"
+            type: "String"
+          ThirdAZ:
             default: "no"
             description: "Enable a 3 AZ deployment, the 3rd AZ can either be used just for the witness, or can be a full SQL cluster node."
             type: "String"
-          DomainDNSName: 
+          DomainDNSName:
             default: "example.com"
             description: "Fully qualified domain name (FQDN) of the forest root domain e.g. example.com"
             type: "String"
-          DomainNetBIOSName: 
+          DomainNetBIOSName:
             default: "example"
             description: "NetBIOS name of the domain (up to 15 characters) for users of earlier versions of Windows e.g. EXAMPLE"
             type: "String"
@@ -863,7 +870,7 @@ Resources:
           inputs:
             Service: ec2
             Api: DescribeInstances
-            Filters:  
+            Filters:
             - Name: "tag:Name"
               Values: ["{{WSFCNode1NetBIOSName}}"]
             - Name: "tag:aws:cloudformation:stack-name"
@@ -880,7 +887,7 @@ Resources:
           inputs:
             Service: ec2
             Api: DescribeInstances
-            Filters:  
+            Filters:
             - Name: "tag:Name"
               Values: ["{{WSFCNode2NetBIOSName}}"]
             - Name: "tag:aws:cloudformation:stack-name"
@@ -910,7 +917,7 @@ Resources:
           inputs:
             Service: ec2
             Api: DescribeInstances
-            Filters:  
+            Filters:
             - Name: "tag:Name"
               Values: ["{{WSFCNode3NetBIOSName}}"]
             - Name: "tag:aws:cloudformation:stack-name"
@@ -927,7 +934,7 @@ Resources:
           inputs:
             Service: ec2
             Api: DescribeInstances
-            Filters:  
+            Filters:
             - Name: "tag:Name"
               Values: [ "{{WSFCNode1NetBIOSName}}","{{WSFCNode2NetBIOSName}}", "{{WSFCNode3NetBIOSName}}"]
             - Name: "tag:aws:cloudformation:stack-name"
@@ -953,34 +960,34 @@ Resources:
               sourceInfo:
                 !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/install-sql-modules.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
               commandLine: "./install-sql-modules.ps1"
         - name: "wsfcnInitializeDisk"
           action: "aws:runCommand"
-          onFailure: "step:signalfailure" 
+          onFailure: "step:signalfailure"
           inputs:
             DocumentName: AWS-RunRemoteScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcnInstanceIds.InstanceIds}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
             Parameters:
               sourceType: "S3"
               sourceInfo:
-                !Sub 
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/Initialize-GPT.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -997,14 +1004,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/LCM-Config.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1021,14 +1028,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/DomainJoin.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1038,14 +1045,14 @@ Resources:
           onFailure: "step:signalfailure"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcnInstanceIds.InstanceIds}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1055,14 +1062,14 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\DomainJoin' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: "Node1nMof"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
-          #nextStep: 
+          #nextStep:
           inputs:
             DocumentName: "AWS-RunRemoteScript"
             InstanceIds:
@@ -1072,14 +1079,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/Node1Config.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1090,14 +1097,14 @@ Resources:
           nextStep: "Node2Mof"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode1InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1107,9 +1114,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\WSFCNode1Config' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: "wsfcFileServerInstanceId"
           action: aws:executeAwsApi
@@ -1117,7 +1124,7 @@ Resources:
           inputs:
             Service: ec2
             Api: DescribeInstances
-            Filters:  
+            Filters:
             - Name: "tag:Name"
               Values: ["{{WSFCFileServerNetBIOSName}}"]
             - Name: "tag:aws:cloudformation:stack-name"
@@ -1134,7 +1141,7 @@ Resources:
           inputs:
             Service: ec2
             Api: DescribeInstances
-            Filters:  
+            Filters:
             - Name: "tag:Name"
               Values: [ "{{WSFCNode1NetBIOSName}}","{{WSFCNode2NetBIOSName}}", "{{WSFCFileServerNetBIOSName}}"]
             - Name: "tag:aws:cloudformation:stack-name"
@@ -1157,14 +1164,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/install-sql-modules.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1174,21 +1181,21 @@ Resources:
           onFailure: "step:signalfailure"
           inputs:
             DocumentName: AWS-RunRemoteScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode1InstanceId.InstanceId}}"
               - "{{wsfcNode2InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/Initialize-GPT.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1205,14 +1212,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/LCM-Config.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1229,14 +1236,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/DomainJoin.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1246,14 +1253,14 @@ Resources:
           onFailure: "step:signalfailure"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcwInstanceIds.InstanceIds}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1263,9 +1270,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\DomainJoin' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: "wsfcFileServerConfig"
           action: "aws:runCommand"
@@ -1279,14 +1286,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/WSFCFileShare.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1294,7 +1301,7 @@ Resources:
         - name: "Node1wMof"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
-          #nextStep: 
+          #nextStep:
           inputs:
             DocumentName: "AWS-RunRemoteScript"
             InstanceIds:
@@ -1304,14 +1311,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/Node1Config.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1321,14 +1328,14 @@ Resources:
           onFailure: "step:signalfailure"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode1InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1338,9 +1345,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\WSFCNode1Config' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: "Node2Mof"
           action: "aws:runCommand"
@@ -1354,14 +1361,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/AdditionalNodeConfig.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1371,14 +1378,14 @@ Resources:
           onFailure: "step:signalfailure"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode2InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1388,9 +1395,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\AdditionalWSFCNode' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: 3AZFullBranch
           action: aws:branch
@@ -1407,7 +1414,7 @@ Resources:
               NextStep: Node3Mof
         - name: "Node3Mof"
           action: "aws:runCommand"
-          onFailure: "step:signalfailure" 
+          onFailure: "step:signalfailure"
           inputs:
             DocumentName: "AWS-RunRemoteScript"
             InstanceIds:
@@ -1417,14 +1424,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/AdditionalNodeConfig.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1434,14 +1441,14 @@ Resources:
           onFailure: "step:signalfailure"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode3InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1451,9 +1458,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\AdditionalWSFCNode' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: SqlInstallBranch
           action: aws:branch
@@ -1480,7 +1487,7 @@ Resources:
               NextStep: 3NodeDownloadSQL
         - name: "2NodeDownloadSQL"
           action: "aws:runCommand"
-          onFailure: "step:signalfailure" 
+          onFailure: "step:signalfailure"
           inputs:
             DocumentName: "AWS-RunRemoteScript"
             InstanceIds:
@@ -1491,21 +1498,21 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/DownloadSQLEE.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
               commandLine: "./DownloadSQLEE.ps1 -SQLServerVersion {{SQLServerVersion}} -SQL2016Media {{SQL2016Media}} -SQL2017Media {{SQL2017Media}} -SQL2019Media {{SQL2019Media}}"
         - name: "2NodeSQLInstallMOF"
           action: "aws:runCommand"
-          onFailure: "step:signalfailure" 
+          onFailure: "step:signalfailure"
           inputs:
             DocumentName: "AWS-RunRemoteScript"
             InstanceIds:
@@ -1516,14 +1523,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/Install-SQLEE.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1533,15 +1540,15 @@ Resources:
           onFailure: "step:signalfailure"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode1InstanceId.InstanceId}}"
               - "{{wsfcNode2InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1551,9 +1558,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\SQLInstall' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: "2NodeInstallSSMS"
           action: aws:runCommand
@@ -1561,21 +1568,21 @@ Resources:
           nextStep: "CreateAGBranch"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode1InstanceId.InstanceId}}"
               - "{{wsfcNode2InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
+              commands:
                 - |
                    $ssms = "C:\SQLMedia\SSMS-Setup-ENU.exe"
                    $ssmsargs = "/quiet /norestart"
                    Start-Process $ssms $ssmsargs -Wait -ErrorAction Stop
         - name: "3NodeDownloadSQL"
           action: "aws:runCommand"
-          onFailure: "step:signalfailure" 
+          onFailure: "step:signalfailure"
           inputs:
             DocumentName: "AWS-RunRemoteScript"
             InstanceIds:
@@ -1585,21 +1592,21 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/DownloadSQLEE.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
               commandLine: "./DownloadSQLEE.ps1 -SQLServerVersion {{SQLServerVersion}} -SQL2016Media {{SQL2016Media}} -SQL2017Media {{SQL2017Media}} -SQL2019Media {{SQL2019Media}}"
         - name: "3NodeSQLInstallMOF"
           action: "aws:runCommand"
-          onFailure: "step:signalfailure" 
+          onFailure: "step:signalfailure"
           inputs:
             DocumentName: "AWS-RunRemoteScript"
             InstanceIds:
@@ -1609,14 +1616,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/Install-SQLEE.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1626,14 +1633,14 @@ Resources:
           onFailure: "step:signalfailure"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcnInstanceIds.InstanceIds}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1643,9 +1650,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\SQLInstall' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: "3NodeInstallSSMS"
           action: aws:runCommand
@@ -1653,13 +1660,13 @@ Resources:
           nextStep: "CreateAGBranch"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcnInstanceIds.InstanceIds}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
+              commands:
                 - |
                    $ssms = "C:\sqlinstall\SSMS-Setup-ENU.exe"
                    $ssmsargs = "/quiet /norestart"
@@ -1680,7 +1687,7 @@ Resources:
         - name: "2NodeReconfigureSQL"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
-          nextStep: "CreateAGBranch" 
+          nextStep: "CreateAGBranch"
           inputs:
             DocumentName: "AWS-RunRemoteScript"
             InstanceIds:
@@ -1691,14 +1698,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/Reconfigure-SQL-DSC.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1706,7 +1713,7 @@ Resources:
         - name: "3NodeReconfigureSQL"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
-          nextStep: "CreateAGBranch" 
+          nextStep: "CreateAGBranch"
           inputs:
             DocumentName: "AWS-RunRemoteScript"
             InstanceIds:
@@ -1716,14 +1723,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/Reconfigure-SQL-DSC.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1772,14 +1779,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/CreateAGNode1.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1790,14 +1797,14 @@ Resources:
           nextStep: "AdditionalCreateAGBranch"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode1InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1807,9 +1814,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\AddAG' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: "2NodeMadPrimaryCreateAG"
           action: "aws:runCommand"
@@ -1823,14 +1830,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/CreateAGNode1.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1841,14 +1848,14 @@ Resources:
           nextStep: "AdditionalCreateAGBranch"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode1InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1858,9 +1865,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\AddAG' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: "3NodeNoMadPrimaryCreateAG"
           action: "aws:runCommand"
@@ -1874,14 +1881,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/CreateAGNode1.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1892,14 +1899,14 @@ Resources:
           nextStep: "AdditionalCreateAGBranch"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode1InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1909,9 +1916,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\AddAG' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: "3NodeMadPrimaryCreateAG"
           action: "aws:runCommand"
@@ -1925,14 +1932,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/CreateAGNode1.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -1942,14 +1949,14 @@ Resources:
           onFailure: "step:signalfailure"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode1InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -1959,9 +1966,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\AddAG' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: AdditionalCreateAGBranch
           action: aws:branch
@@ -1988,14 +1995,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/AdditionalNodeCreateAG.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -2006,14 +2013,14 @@ Resources:
           nextStep: "CFNSignalEnd"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode2InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -2023,9 +2030,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\AddAG' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         - name: "3NodeAdditionalCreateAG"
           action: "aws:runCommand"
@@ -2040,14 +2047,14 @@ Resources:
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
               sourceType: "S3"
-              sourceInfo: 
-                !Sub 
+              sourceInfo:
+                !Sub
                   - '{"path": "https://${S3Bucket}.s3.${S3Region}.{{URLSuffix}}/{{QSS3KeyPrefix}}scripts/AdditionalNodeCreateAG.ps1"}'
-                  - S3Bucket: !If 
+                  - S3Bucket: !If
                       - UsingDefaultBucket
                       - !Sub '${QSS3BucketName}-${AWS::Region}'
                       - !Ref QSS3BucketName
-                    S3Region: !If 
+                    S3Region: !If
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
@@ -2057,15 +2064,15 @@ Resources:
           onFailure: "step:signalfailure"
           inputs:
             DocumentName: AWS-RunPowerShellScript
-            InstanceIds: 
+            InstanceIds:
               - "{{wsfcNode2InstanceId.InstanceId}}"
               - "{{wsfcNode3InstanceId.InstanceId}}"
             CloudWatchOutputConfig:
               CloudWatchOutputEnabled: "true"
               CloudWatchLogGroupName: !Ref 'QuickStartLogs'
             Parameters:
-              commands: 
-                - |     
+              commands:
+                - |
                    function DscStatusCheck () {
                        $LCMState = (Get-DscLocalConfigurationManager).LCMState
                        if ($LCMState -eq 'PendingConfiguration' -Or $LCMState -eq 'PendingReboot') {
@@ -2075,9 +2082,9 @@ Resources:
                          'Completed'
                        }
                    }
-                   
+
                    Start-DscConfiguration 'C:\AWSQuickstart\AddAG' -Wait -Verbose -Force
-        
+
                    DscStatusCheck
         # Determines if CFN Needs to be Signaled or if Work flow should just end
         - name: CFNSignalEnd
@@ -2085,7 +2092,7 @@ Resources:
           inputs:
             Choices:
             - NextStep: signalsuccess
-              Not: 
+              Not:
                 Variable: "{{StackName}}"
                 StringEquals: ""
             - NextStep: sleepend
@@ -2152,7 +2159,7 @@ Resources:
             Statement:
               - Action:
                   - s3:GetObject
-                Resource: 
+                Resource:
                   - !Sub 'arn:aws:s3:::aws-ssm-${AWS::Region}/*'
                   - !Sub 'arn:aws:s3:::aws-windows-downloads-${AWS::Region}/*'
                   - !Sub 'arn:aws:s3:::amazon-ssm-${AWS::Region}/*'
@@ -2168,7 +2175,7 @@ Resources:
                 Action:
                   - secretsmanager:GetSecretValue
                   - secretsmanager:DescribeSecret
-                Resource: 
+                Resource:
                   - !Ref 'SQLSecrets'
                   - !Ref 'ADAdminSecrets'
               - Effect: Allow
@@ -2459,6 +2466,8 @@ Resources:
             - !Sub '"${ClusterName}"'
             - ';"AvailabiltyGroupName"='
             - !Sub '"${AvailabiltyGroupName}"'
+            - ';"SeparateDataLogsVolume"='
+            - !Sub '"${SeparateDataLogsVolume}"'
             - ';"ThirdAZ"='
             - !Sub '"${ThirdAZ}"'
             - ';"DomainDNSName"='
@@ -2504,6 +2513,7 @@ Resources:
         - !Ref 'Volume1Iops'
         - !Ref 'AWS::NoValue'
   WSFCNode1Volume2:
+    Condition: IsVol2Needed
     Type: AWS::EC2::Volume
     Properties:
       Size: !Ref 'Volume2Size'
@@ -2534,6 +2544,7 @@ Resources:
         - !Ref 'Volume1Iops'
         - !Ref 'AWS::NoValue'
   WSFCNode2Volume2:
+    Condition: IsVol2Needed
     Type: AWS::EC2::Volume
     Properties:
       Size: !Ref 'Volume2Size'
@@ -2565,6 +2576,7 @@ Resources:
         - !Ref 'Volume1Iops'
         - !Ref 'AWS::NoValue'
   WSFCNode3Volume2:
+    Condition: IsVol2Needed
     Type: AWS::EC2::Volume
     Condition: ThirdAzIsFullNode
     Properties:
@@ -2593,6 +2605,7 @@ Resources:
       InstanceId: !Ref 'WSFCNode1'
       VolumeId: !Ref 'WSFCNode1Volume1'
   WSFCNode1Volume2Attachment:
+    Condition: IsVol2Needed
     Type: AWS::EC2::VolumeAttachment
     Properties:
       Device: /dev/xvdc
@@ -2611,6 +2624,7 @@ Resources:
       InstanceId: !Ref 'WSFCNode2'
       VolumeId: !Ref 'WSFCNode2Volume1'
   WSFCNode2Volume2Attachment:
+    Condition: IsVol2Needed
     Type: AWS::EC2::VolumeAttachment
     Properties:
       Device: /dev/xvdc
@@ -2630,6 +2644,7 @@ Resources:
       InstanceId: !Ref 'WSFCNode3'
       VolumeId: !Ref 'WSFCNode3Volume1'
   WSFCNode3Volume2Attachment:
+    Condition: IsVol2Needed
     Type: AWS::EC2::VolumeAttachment
     Condition: ThirdAzIsFullNode
     Properties:
@@ -2643,17 +2658,17 @@ Resources:
       Device: /dev/xvdd
       InstanceId: !Ref 'WSFCNode3'
       VolumeId: !Ref 'WSFCNode3Volume3'
-  SSMWaitHandle: 
+  SSMWaitHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
-  SSMWaitCondition: 
+  SSMWaitCondition:
     Type: AWS::CloudFormation::WaitCondition
     CreationPolicy:
       ResourceSignal:
         Timeout: PT180M
         Count: 1
     DependsOn: "WSFCNode2"
-    Properties: 
-      Handle: 
+    Properties:
+      Handle:
         Ref: "SSMWaitHandle"
       Timeout: "9000"
       Count: 1

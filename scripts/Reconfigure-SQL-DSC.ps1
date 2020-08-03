@@ -10,6 +10,9 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$SQLSecret
 
+    [Parameter(Mandatory=$true)]
+    [string]$SeparateDataLogsVolume
+
 )
 
 # Getting the DSC Cert Encryption Thumbprint to Secure the MOF File
@@ -40,8 +43,15 @@ $ConfigurationData = @{
     )
 }
 
+if ( $SeparateDataLogsVolume -eq "true" ) {
+  $SQLLogsDrive = 'E'
+}
+else {
+  $SQLLogsDrive = 'D'
+}
+
 Configuration ReconfigureSQL {
-    
+
     param(
         [Parameter(Mandatory = $true)]
         [PSCredential]$SQLCredentials,
@@ -102,19 +112,19 @@ Configuration ReconfigureSQL {
             Type            = 'Directory'
             DestinationPath = 'D:\MSSQL\DATA'
         }
-    
+
         File 'SQLLogFolder' {
             Ensure          = 'Present'
             Type            = 'Directory'
-            DestinationPath = 'E:\MSSQL\LOG'
+            DestinationPath = "$SQLLogsDrive:\MSSQL\LOG"
         }
-    
+
         File 'SQLBackupFolder' {
             Ensure          = 'Present'
             Type            = 'Directory'
             DestinationPath = 'F:\MSSQL\Backup'
         }
-    
+
         File 'SQLTempDBFolder' {
             Ensure          = 'Present'
             Type            = 'Directory'
@@ -136,7 +146,7 @@ Configuration ReconfigureSQL {
             InstanceName            = 'MSSQLSERVER'
             ProcessOnlyOnActiveNode = $true
             Type                    = 'Log'
-            Path                    = 'E:\MSSQL\LOG'
+            Path                    = "$SQLLogsDrive:\MSSQL\LOG"
             PsDscRunAsCredential    = $SQLCredentials
             DependsOn               = '[SqlServerRole]AddSysadminUsers', '[File]SQLLogFolder'
         }
@@ -172,7 +182,7 @@ Configuration ReconfigureSQL {
             }
             SetScript = {
                 $sqlpath = (Resolve-Path 'C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\').Path
-                $params = "-dD:\MSSQL\DATA\master.mdf;-e$sqlpath\MSSQL\Log\ERRORLOG;-lE:\MSSQL\LOG\mastlog.ldf"
+                $params = "-dD:\MSSQL\DATA\master.mdf;-e$sqlpath\MSSQL\Log\ERRORLOG;-l$SQLLogsDrive:\MSSQL\LOG\mastlog.ldf"
                 [System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SqlWmiManagement')| Out-Null
                 $smowmi = New-Object Microsoft.SqlServer.Management.Smo.Wmi.ManagedComputer localhost
                 $SQLService = $smowmi.Services | where {$_.name -eq 'MSSQLSERVER'}
@@ -200,8 +210,8 @@ Configuration ReconfigureSQL {
 
         SqlScriptQuery 'UpdatePathModel' {
             ServerInstance = 'localhost'
-            SetQuery       = "USE master; ALTER DATABASE model MODIFY FILE (NAME = modeldev, FILENAME = 'D:\MSSQL\DATA\model.mdf'); ALTER DATABASE model MODIFY FILE (NAME = modellog, FILENAME = 'E:\MSSQL\LOG\modellog.ldf');"
-            TestQuery      = "IF NOT EXISTS (SELECT name FROM sys.master_files WHERE physical_name='D:\MSSQL\DATA\model.mdf' OR physical_name='E:\MSSQL\LOG\modellog.ldf')
+            SetQuery       = "USE master; ALTER DATABASE model MODIFY FILE (NAME = modeldev, FILENAME = 'D:\MSSQL\DATA\model.mdf'); ALTER DATABASE model MODIFY FILE (NAME = modellog, FILENAME = '$SQLLogsDrive:\MSSQL\LOG\modellog.ldf');"
+            TestQuery      = "IF NOT EXISTS (SELECT name FROM sys.master_files WHERE physical_name='D:\MSSQL\DATA\model.mdf' OR physical_name='$SQLLogsDrive:\MSSQL\LOG\modellog.ldf')
             BEGIN
                 RAISERROR ('Database Location is not correct', 16, 1)
             END
@@ -216,8 +226,8 @@ Configuration ReconfigureSQL {
 
         SqlScriptQuery 'UpdatePathMSDB' {
             ServerInstance = 'localhost'
-            SetQuery       = "USE master; ALTER DATABASE MSDB MODIFY FILE (NAME = MSDBData, FILENAME = 'D:\MSSQL\DATA\MSDBData.mdf'); ALTER DATABASE MSDB MODIFY FILE (NAME = MSDBLog, FILENAME = 'E:\MSSQL\LOG\MSDBLog.ldf');"
-            TestQuery      = "IF NOT EXISTS (SELECT name FROM sys.master_files WHERE physical_name='D:\MSSQL\DATA\MSDBData.mdf' OR physical_name='E:\MSSQL\LOG\MSDBLog.ldf')
+            SetQuery       = "USE master; ALTER DATABASE MSDB MODIFY FILE (NAME = MSDBData, FILENAME = 'D:\MSSQL\DATA\MSDBData.mdf'); ALTER DATABASE MSDB MODIFY FILE (NAME = MSDBLog, FILENAME = '$SQLLogsDrive:\MSSQL\LOG\MSDBLog.ldf');"
+            TestQuery      = "IF NOT EXISTS (SELECT name FROM sys.master_files WHERE physical_name='D:\MSSQL\DATA\MSDBData.mdf' OR physical_name='$SQLLogsDrive:\MSSQL\LOG\MSDBLog.ldf')
             BEGIN
                 RAISERROR ('Database Location is not correct', 16, 1)
             END
@@ -232,11 +242,11 @@ Configuration ReconfigureSQL {
 
         Script MoveDBFiles {
             GetScript = {
-                [array]$filelocations = "F:\MSSQL\TempDB\tempdb.mdf","F:\MSSQL\TempDB\templog.ldf","D:\MSSQL\DATA\model.mdf","E:\MSSQL\LOG\modellog.ldf","D:\MSSQL\DATA\MSDBData.mdf","E:\MSSQL\LOG\MSDBLog.ldf","D:\MSSQL\DATA\master.mdf","E:\MSSQL\LOG\mastlog.ldf"
+                [array]$filelocations = "F:\MSSQL\TempDB\tempdb.mdf","F:\MSSQL\TempDB\templog.ldf","D:\MSSQL\DATA\model.mdf","$SQLLogsDrive:\MSSQL\LOG\modellog.ldf","D:\MSSQL\DATA\MSDBData.mdf","$SQLLogsDrive:\MSSQL\LOG\MSDBLog.ldf","D:\MSSQL\DATA\master.mdf","$SQLLogsDrive:\MSSQL\LOG\mastlog.ldf"
                 Return @{Result = [string]$(test-path $filelocations)}
             }
             TestScript = {
-                [array]$filelocations = "F:\MSSQL\TempDB\tempdb.mdf","F:\MSSQL\TempDB\templog.ldf","D:\MSSQL\DATA\model.mdf","E:\MSSQL\LOG\modellog.ldf","D:\MSSQL\DATA\MSDBData.mdf","E:\MSSQL\LOG\MSDBLog.ldf","D:\MSSQL\DATA\master.mdf","E:\MSSQL\LOG\mastlog.ldf"
+                [array]$filelocations = "F:\MSSQL\TempDB\tempdb.mdf","F:\MSSQL\TempDB\templog.ldf","D:\MSSQL\DATA\model.mdf","$SQLLogsDrive:\MSSQL\LOG\modellog.ldf","D:\MSSQL\DATA\MSDBData.mdf","$SQLLogsDrive:\MSSQL\LOG\MSDBLog.ldf","D:\MSSQL\DATA\master.mdf","$SQLLogsDrive:\MSSQL\LOG\mastlog.ldf"
                 if(((test-path $filelocations) -eq $false).Count) {
                     Write-Verbose 'Files need to be Moved'
                     Return $false
@@ -254,11 +264,11 @@ Configuration ReconfigureSQL {
                 Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\tempdb.mdf" "F:\MSSQL\TempDB\tempdb.mdf"
                 Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\templog.ldf" "F:\MSSQL\TempDB\templog.ldf"
                 Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\model.mdf" "D:\MSSQL\DATA\model.mdf"
-                Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\modellog.ldf" "E:\MSSQL\LOG\modellog.ldf"
+                Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\modellog.ldf" "$SQLLogsDrive:\MSSQL\LOG\modellog.ldf"
                 Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\MSDBData.mdf" "D:\MSSQL\DATA\MSDBData.mdf"
-                Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\MSDBLog.ldf" "E:\MSSQL\LOG\MSDBLog.ldf"
+                Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\MSDBLog.ldf" "$SQLLogsDrive:\MSSQL\LOG\MSDBLog.ldf"
                 Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\master.mdf" "D:\MSSQL\DATA\master.mdf"
-                Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\mastlog.ldf" "E:\MSSQL\LOG\mastlog.ldf"
+                Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\mastlog.ldf" "$SQLLogsDrive:\MSSQL\LOG\mastlog.ldf"
                 # Start service4
                 $SQLService.Start()
                 $SQLService.WaitForStatus('Running','00:01:00')
