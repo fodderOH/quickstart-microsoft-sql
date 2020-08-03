@@ -403,6 +403,13 @@ Parameters:
     Default: gp2
     Description: Volume type for the SQL Server data drive.
     Type: String
+  SeparateDataLogsVolume:
+    AllowedValues:
+      - Yes
+      - No
+    Default: No
+    Description: Should data and logs be kept on separate volumes?
+    Type: String
   Volume2Iops:
     Default: '1000'
     Description: IOPS for the SQL Server logs drive (only used when volume type is io1).
@@ -626,6 +633,9 @@ Conditions:
   Vol3IsIo1: !Equals
     - !Ref 'Volume2Type'
     - io1
+  IsVol2Needed: !Equals
+      - !Ref 'SeparateDataLogsVolume'
+      - Yes
   HostTypeIsDefault: !Equals
     - !Ref 'HostType'
     - Shared
