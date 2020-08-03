@@ -2458,8 +2458,6 @@ Resources:
             - !Sub '"${QSS3BucketName}"'
             - ';"QSS3KeyPrefix"='
             - !Sub '"${QSS3KeyPrefix}"'
-            - ';"SQL2016Media"='
-            - !Sub '"none"'
             - ';"SQL2017Media"='
             - !Sub '"${SQL2017Media}"'
             - ';"SQL2019Media"='
