@@ -8,7 +8,7 @@ param(
     [string]$AdminSecret,
 
     [Parameter(Mandatory=$true)]
-    [string]$SQLSecret
+    [string]$SQLSecret,
 
     [Parameter(Mandatory=$true)]
     [string]$SeparateDataLogsVolume

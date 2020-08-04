@@ -14,7 +14,7 @@ param(
     [string]$SQLServerVersion,
 
     [Parameter(Mandatory=$true)]
-    [string]$SQLSecret
+    [string]$SQLSecret,
 
     [Parameter(Mandatory=$true)]
     [string]$SeparateDataLogsVolume
