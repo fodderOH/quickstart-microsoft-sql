@@ -23,19 +23,19 @@ $NameTag = (Get-EC2Tag -Filter @{ Name="resource-id";Values=(Invoke-RestMethod -
 $NetBIOSName = $NameTag.Value
 
 if ( $SeparateDataLogsVolume -eq "true" ) {
-  $SQLLogsDrive = 'E'
+  ${SQLLogsDrive} = 'E'
 }
 else {
-  $SQLLogsDrive = 'D'
+  ${SQLLogsDrive} = 'D'
 }
 
 try {
     Start-Transcript -Path C:\AWSQuickstart\Reconfigure-SQL.ps1.txt -Append
     $ErrorActionPreference = "Stop"
 
-    [array]$paths = "D:\MSSQL\DATA","$SQLLogsDrive:\MSSQL\LOG","F:\MSSQL\Backup","F:\MSSQL\TempDB"
+    [array]$paths = "D:\MSSQL\DATA","${SQLLogsDrive}:\MSSQL\LOG","F:\MSSQL\Backup","F:\MSSQL\TempDB"
     $sqlpath = (Resolve-Path 'C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\').Path
-    $params = "-dD:\MSSQL\DATA\master.mdf;-e$sqlpath\MSSQL\Log\ERRORLOG;-l$SQLLogsDrive:\MSSQL\LOG\mastlog.ldf"
+    $params = "-dD:\MSSQL\DATA\master.mdf;-e$sqlpath\MSSQL\Log\ERRORLOG;-l${SQLLogsDrive}:\MSSQL\LOG\mastlog.ldf"
 
     $DomainAdminFullUser = $DomainNetBIOSName + '\' + $AdminUser.UserName
     $DomainAdminSecurePassword = ConvertTo-SecureString $AdminUser.Password -AsPlainText -Force
@@ -59,7 +59,7 @@ try {
         Set-Location "SQLSERVER:\SQL\$env:COMPUTERNAME\DEFAULT"
         $Server = (Get-Item .)
         $Server.DefaultFile = "D:\MSSQL\DATA"
-        $Server.DefaultLog = "$SQLLogsDrive:\MSSQL\LOG"
+        $Server.DefaultLog = "${SQLLogsDrive}:\MSSQL\LOG"
         $Server.BackupDirectory = "F:\MSSQL\Backup"
         $Server.Alter()
 
@@ -81,8 +81,8 @@ try {
 
         # Update paths for tempdb,model and MSDB
         Invoke-Sqlcmd -Query "USE master; ALTER DATABASE tempdb MODIFY FILE (NAME = tempdev, FILENAME = 'F:\MSSQL\TempDB\tempdb.mdf'); ALTER DATABASE tempdb MODIFY FILE (NAME = templog, FILENAME = 'F:\MSSQL\TempDB\templog.ldf');"
-        Invoke-Sqlcmd -Query "USE master; ALTER DATABASE model MODIFY FILE (NAME = modeldev, FILENAME = 'D:\MSSQL\DATA\model.mdf'); ALTER DATABASE model MODIFY FILE (NAME = modellog, FILENAME = '$SQLLogsDrive:\MSSQL\LOG\modellog.ldf');"
-        Invoke-Sqlcmd -Query "USE master; ALTER DATABASE MSDB MODIFY FILE (NAME = MSDBData, FILENAME = 'D:\MSSQL\DATA\MSDBData.mdf'); ALTER DATABASE MSDB MODIFY FILE (NAME = MSDBLog, FILENAME = '$SQLLogsDrive:\MSSQL\LOG\MSDBLog.ldf');"
+        Invoke-Sqlcmd -Query "USE master; ALTER DATABASE model MODIFY FILE (NAME = modeldev, FILENAME = 'D:\MSSQL\DATA\model.mdf'); ALTER DATABASE model MODIFY FILE (NAME = modellog, FILENAME = '${SQLLogsDrive}:\MSSQL\LOG\modellog.ldf');"
+        Invoke-Sqlcmd -Query "USE master; ALTER DATABASE MSDB MODIFY FILE (NAME = MSDBData, FILENAME = 'D:\MSSQL\DATA\MSDBData.mdf'); ALTER DATABASE MSDB MODIFY FILE (NAME = MSDBLog, FILENAME = '${SQLLogsDrive}:\MSSQL\LOG\MSDBLog.ldf');"
 
         # Stop SQL Service
         $SQLService = Get-Service -Name 'MSSQLSERVER'
@@ -93,11 +93,11 @@ try {
         Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\tempdb.mdf" "F:\MSSQL\TempDB\tempdb.mdf"
         Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\templog.ldf" "F:\MSSQL\TempDB\templog.ldf"
         Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\model.mdf" "D:\MSSQL\DATA\model.mdf"
-        Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\modellog.ldf" "$SQLLogsDrive:\MSSQL\LOG\modellog.ldf"
+        Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\modellog.ldf" "${SQLLogsDrive}:\MSSQL\LOG\modellog.ldf"
         Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\MSDBData.mdf" "D:\MSSQL\DATA\MSDBData.mdf"
-        Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\MSDBLog.ldf" "$SQLLogsDrive:\MSSQL\LOG\MSDBLog.ldf"
+        Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\MSDBLog.ldf" "${SQLLogsDrive}:\MSSQL\LOG\MSDBLog.ldf"
         Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\master.mdf" "D:\MSSQL\DATA\master.mdf"
-        Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\mastlog.ldf" "$SQLLogsDrive:\MSSQL\LOG\mastlog.ldf"
+        Move-Item "C:\Program Files\Microsoft SQL Server\MSSQL*.MSSQLSERVER\MSSQL\DATA\mastlog.ldf" "${SQLLogsDrive}:\MSSQL\LOG\mastlog.ldf"
 
         # Set SQL Server and Agent services user to SQL AD user
         $Services = Get-WmiObject -Class Win32_Service -Filter "Name='SQLSERVERAGENT' OR Name='MSSQLSERVER'"

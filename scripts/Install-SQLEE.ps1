@@ -105,7 +105,7 @@ Configuration SQLInstall {
             InstanceDir            = 'C:\Program Files\Microsoft SQL Server'
             InstallSQLDataDir      = 'D:\MSSQL\Data'
             SQLUserDBDir           = 'D:\MSSQL\Data'
-            SQLUserDBLogDir        = '$SQLLogsDrive:\MSSQL\Log'
+            SQLUserDBLogDir        = "${SQLLogsDrive}:\MSSQL\Log"
             SQLTempDBDir           = 'F:\MSSQL\Temp'
             SQLTempDBLogDir        = 'F:\MSSQL\Temp'
             SQLBackupDir           = 'F:\MSSQL\Backup'
