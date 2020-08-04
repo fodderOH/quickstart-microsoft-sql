@@ -78,7 +78,7 @@ Configuration Disk_InitializeDataDisk
                RetryCount = 60
           }
 
-          Disk EVolume {
+          Disk FVolume {
                DiskId = 2
                DriveLetter = 'F'
                PartitionStyle = 'GPT'

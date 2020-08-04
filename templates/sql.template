@@ -971,7 +971,7 @@ Resources:
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
-              commandLine: "./Initialize-GPT.ps1 -SeparateDataLogsVolume 'true'"
+              commandLine: "./Initialize-GPT.ps1 -SeparateDataLogsVolume {{SeparateDataLogsVolume}}"
         - name: "wsfcnLCMConfig"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
@@ -1179,7 +1179,7 @@ Resources:
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
-              commandLine: "./Initialize-GPT.ps1 -SeparateDataLogsVolume 'true'"
+              commandLine: "./Initialize-GPT.ps1 -SeparateDataLogsVolume {{SeparateDataLogsVolume}}"
         - name: "wsfcwLCMConfig"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
@@ -1689,7 +1689,7 @@ Resources:
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
-              commandLine: "./Reconfigure-SQL-DSC.ps1 -DomainNetBIOSName {{DomainNetBIOSName}} -AdminSecret {{AdminSecrets}} -SQLSecret {{SQLSecrets}}"
+              commandLine: "./Reconfigure-SQL-DSC.ps1 -DomainNetBIOSName {{DomainNetBIOSName}} -AdminSecret {{AdminSecrets}} -SQLSecret {{SQLSecrets}} -SeparateDataLogsVolume {{SeparateDataLogsVolume}}"
         - name: "3NodeReconfigureSQL"
           action: "aws:runCommand"
           onFailure: "step:signalfailure"
@@ -1714,7 +1714,7 @@ Resources:
                       - UsingDefaultBucket
                       - !Ref AWS::Region
                       - !Ref QSS3BucketRegion
-              commandLine: "./Reconfigure-SQL-DSC.ps1 -DomainNetBIOSName {{DomainNetBIOSName}} -AdminSecret {{AdminSecrets}} -SQLSecret {{SQLSecrets}}"
+              commandLine: "./Reconfigure-SQL-DSC.ps1 -DomainNetBIOSName {{DomainNetBIOSName}} -AdminSecret {{AdminSecrets}} -SQLSecret {{SQLSecrets}} -SeparateDataLogsVolume {{SeparateDataLogsVolume}}"
         - name: CreateAGBranch
           action: aws:branch
           inputs:
