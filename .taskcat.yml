@@ -94,43 +94,6 @@ tests:
     - us-west-2
     s3_bucket: ''
     template: templates/sql-master.template
-  mssql-ec2:
-    parameters:
-      ADScenarioType: Microsoft AD on Amazon EC2
-      ADServer1NetBIOSName: SQLDC1
-      ADServer2NetBIOSName: SQLDC2
-      AvailabilityZones: $[taskcat_getaz_2]
-      DomainAdminPassword: $[taskcat_genpass_16]
-      KeyPairName: $[taskcat_getkeypair]
-      QSS3BucketName: $[taskcat_autobucket]
-      QSS3BucketRegion: $[taskcat_current_region]
-      RDGWCIDR: 0.0.0.0/0
-      SQLLicenseProvided: 'no'
-      SQLServiceAccountPassword: $[taskcat_genpass_16]
-      SQL2019Media: https://quickstart-ci-media.s3.amazonaws.com/microsoft/sql/SQLServer2019-x64-ENU.iso
-    regions:
-    - eu-central-1
-    s3_bucket: ''
-    template: templates/sql-master.template
-  mssql-ec2-3rdaz-full:
-    parameters:
-      ADScenarioType: Microsoft AD on Amazon EC2
-      ADServer1NetBIOSName: SQLDC1
-      ADServer2NetBIOSName: SQLDC2
-      AvailabilityZones: $[taskcat_getaz_3]
-      DomainAdminPassword: $[taskcat_genpass_16]
-      KeyPairName: $[taskcat_getkeypair]
-      QSS3BucketName: $[taskcat_autobucket]
-      QSS3BucketRegion: $[taskcat_current_region]
-      RDGWCIDR: 10.0.0.0/16
-      SQLLicenseProvided: 'no'
-      SQLServiceAccountPassword: $[taskcat_genpass_16]
-      SQL2019Media: https://quickstart-ci-media.s3.amazonaws.com/microsoft/sql/SQLServer2019-x64-ENU.iso
-      ThirdAZ: full
-    regions:
-    - eu-west-3
-    s3_bucket: ''
-    template: templates/sql-master.template
   mssql-ec2-3rdaz-witness:
     parameters:
       ADScenarioType: Microsoft AD on Amazon EC2
